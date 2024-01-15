@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+	<head>
+		<title>timeshare over websocket</title>
+	</head>
+	<body>
+		<form action="create-room" id="room-creator">
+			<label for="primaryTime">A</label>
+			<input type="number" id="primaryTime" name="primaryTime" min="1" value="1">
+			<label for="breakTime">B</label>
+			<input type="number" id="breakTime" name="breakTime" min="1" value="1">
+			<label for="messagesEnabled">C</label>
+			<input type="checkbox" id="messagesEnabled" name="messagesEnabled">
+			<input value="Submit" type="button" id="faux-submit">
+		</form>
+	</body>
+	<script>
+		document.getElementById("faux-submit").onclick = function(e) {
+			sentData = new Object();
+			sentData.primaryTime = parseInt(document.getElementById("primaryTime").value);
+			sentData.breakTime = parseInt(document.getElementById("breakTime").value);
+			sentData.messagesEnabled = document.getElementById("messagesEnabled").checked;
+			fetch("/room-create", {"method": "POST", "headers": {"Content-Type": "application/json"}, "body": JSON.stringify(sentData)});
+		}
+	</script>
+</html>

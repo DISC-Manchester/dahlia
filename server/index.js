@@ -4,7 +4,7 @@ Object.freeze(config); // Config should not be modified after initialization!
 
 const MessageParser = function(webSocket, message, isBinary) {
 	if(isBinary) {
-		console.log("%s client exiting, reason: Unsupported transport", new TextDecoder("utf-8").decode(webSocket.getRemoteAddressAsText()));
+		console.log("%s client exiting, reason: Unsupported binary", new TextDecoder("utf-8").decode(webSocket.getRemoteAddressAsText()));
 		webSocket.end(1003, new TextEncoder("utf-8").encode("Sorry, but we currently do not support binary transport. Check back later!"));
 		return;
 	}
@@ -55,7 +55,7 @@ const HttpRequestHandler = function(response, request) {
 
 // use SSLApp in prod!... or just proxy in nginx (apache2 is """fine""" too), does it matter in the end?
 require("uWebSockets.js").App({})
-.ws('/rooms', { // DECIDE ON THE ENDPOINT FOR WS ADDRESS
+.ws('/room/*', { // DECIDE ON THE ENDPOINT FOR WS ADDRESS; could also be /room/id, but would require jank? in USR(open)
 	"idleTimeout": 32,
 	"maxBackpressure": 1024,
 	"maxPayloadLength": 512,
@@ -68,6 +68,6 @@ require("uWebSockets.js").App({})
 })
 .put('/room/*', HttpRequestHandler)
 .del('/room/*', HttpRequestHandler)
-.get('/room/*', HttpRequestHandler)
+.get('/room/*', HttpRequestHandler) // should this really even provide anything or should it be handled by a frontend server
 .post('/create-room', HttpRequestHandler) // is this final naming? endpoint naming/routing can be decided later if needed
 .listen(config.port, function(token) {console.log(token ? `open on ${config.port}` : `failed to listen to ${config.port}`)});
