@@ -1,0 +1,5 @@
+# i was considering adding the npm lockfile to the ignore,
+# but since we're using star versions, we need it
+# ^ (EVIL! NEVER DO THIS OUTSIDE OF THINGS YOU DO NOT, AND WILL NOT CARE ABOUT)
+
+node_modules/*

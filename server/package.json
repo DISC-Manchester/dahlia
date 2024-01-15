@@ -1,0 +1,19 @@
+{
+  "dependencies": {
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#semver:*"
+  },
+  "name": "timeshare-ws-server",
+  "version": "0.0.1",
+  "description": "A server for timeshare-ws.",
+  "main": "index.js",
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "none"
+  },
+  "keywords": [
+    "websocket"
+  ],
+  "author": "yellows111",
+  "license": "UNLICENSED"
+}
