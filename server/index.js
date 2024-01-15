@@ -12,7 +12,6 @@ const MessageParser = function(webSocket, message, isBinary) {
 	//console.log(msg, message, isBinary);
 	console.log(`${new TextDecoder("utf-8").decode(webSocket.getRemoteAddressAsText())} message: ${msg}`);
 }
-
 const UserStateRequest = function(webSocket, state, data = null) {
 	switch(state) {
 		case "open": {
@@ -31,9 +30,32 @@ const UserStateRequest = function(webSocket, state, data = null) {
 		}
 	}
 }
+const HttpRequestHandler = function(response, request) {
+	console.log(`${request.getMethod().toUpperCase()} ${request.getUrl()}`)
+	switch(request.getMethod()) {
+		case "get": {
+			// connect to a room
+			break;
+		}
+		case "put": {
+			// modify a room
+			break;
+		}
+		case "post": {
+			// create a room
+			break;
+		}
+		case "delete": {
+			// terminate a room
+			break;
+		}
+	}
+	response.writeStatus('200 OK').end("No data.");
+}
 
 // use SSLApp in prod!... or just proxy in nginx (apache2 is """fine""" too), does it matter in the end?
-require("uWebSockets.js").App({}).ws('/*', {
+require("uWebSockets.js").App({})
+.ws('/rooms', { // DECIDE ON THE ENDPOINT FOR WS ADDRESS
 	"idleTimeout": 32,
 	"maxBackpressure": 1024,
 	"maxPayloadLength": 512,
@@ -43,4 +65,9 @@ require("uWebSockets.js").App({}).ws('/*', {
 	"open": function(ws) {UserStateRequest(ws, "open")},
 	"close": function(ws, code, message) {UserStateRequest(ws, "close", {code, message})},
 	"drain": function(ws) {console.log(`WS going through back-pressure!: ${ws.getBufferedAmount()}`)}
-}).listen(config.port, function(token) {console.log(token ? `open on ${config.port}` : `failed to listen to ${config.port}`)});
+})
+.put('/room/*', HttpRequestHandler)
+.del('/room/*', HttpRequestHandler)
+.get('/room/*', HttpRequestHandler)
+.post('/create-room', HttpRequestHandler) // is this final naming? endpoint naming/routing can be decided later if needed
+.listen(config.port, function(token) {console.log(token ? `open on ${config.port}` : `failed to listen to ${config.port}`)});
