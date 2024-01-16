@@ -1,9 +1,46 @@
 const config = {port: 9091};
-
 Object.freeze(config); // Config should not be modified after initialization!
 
 const RoomStorage = new Map();
 
+const ParseCommandString = function(instruction) {
+	if(typeof instr !== "string") {
+		return;
+	}
+	let position = -1;
+	let sections = new Array();
+	
+	for(;;) {
+		let length = instruction.indexOf('.', pos + 1);
+		
+		if(length === -1) {
+			break;
+		}
+		
+		position = (parseInt(instruction.slice(position + 1, length)) + length) + 1
+		sections.push(instruction.slice(length + 1, position));
+		
+		if(instruction.slice(position, position + 1) === ';') {
+			break;
+		}
+	}
+	return sections;
+}
+const EncodeCommandString = function(args) {
+	if(Array.isArray(args) === false) {
+		return;
+	}
+	let output = ""
+	const argsArray = args;
+	for (let argv = 0; argv < args.length ; argv++) {
+		if(typeof args[argv] !== "string") {
+			argsArray[argv] = args[argv].toString();
+		}
+		output = output.concat(argsArray[argv].length.toString(), ".", argsArray[argv])
+		output += (argv === args.length - 1) ? ";" : ",";
+	}
+	return output;
+}
 const MessageParser = function(webSocket, message, isBinary) {
 	if(isBinary) {
 		console.log("%s client exiting, reason: Unsupported binary", new TextDecoder("utf-8").decode(webSocket.getRemoteAddressAsText()));
