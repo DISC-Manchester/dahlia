@@ -2,6 +2,8 @@ const config = {port: 9091};
 
 Object.freeze(config); // Config should not be modified after initialization!
 
+const RoomStorage = new Map();
+
 const MessageParser = function(webSocket, message, isBinary) {
 	if(isBinary) {
 		console.log("%s client exiting, reason: Unsupported binary", new TextDecoder("utf-8").decode(webSocket.getRemoteAddressAsText()));
@@ -31,31 +33,84 @@ const UserStateRequest = function(webSocket, state, data = null) {
 	}
 }
 const HttpRequestHandler = function(response, request) {
-	console.log(`${request.getMethod().toUpperCase()} ${request.getUrl()}`)
+	console.log(`${request.getMethod().toUpperCase()} ${request.getUrl()}`);
+	response.writeHeader("Content-Type", "application/json");
 	switch(request.getMethod()) {
+		case "post": {
+			// create a room
+			response.onAborted(function(){}); // could probably write some 4xx here but oh well
+			if(request.getHeader("content-type") !== "application/json") {
+				response.writeStatus("400 Bad Request").end("{\"status\": \"error\", \"message\":\"Expected JSON.\"}");
+				return;
+			}
+			response.onData(function(chunk, last) {
+				if(last !== true) {
+					response.writeStatus("400 Bad Request").end("{\"status\": \"error\", \"message\":\"Request too long.\"}");
+					return;
+				}
+				let timeData = JSON.parse(new TextDecoder("utf-8").decode(chunk));
+				let id = Math.random().toString(16).split('.')[1].substring(0,8);
+				RoomStorage.set(id, timeData);
+				response.writeStatus("200 OK").end(`{"status": "success", "room": "${id}"}`);
+				console.log(`${id} => ${JSON.stringify(timeData)}`);
+				return;
+			});
+			return;
+		}
 		case "get": {
-			// connect to a room
-			break;
+			// get room information
+			let getRoomId = request.getUrl().split('/')[2];
+			if(typeof RoomStorage.get(getRoomId) === "undefined") {
+				response.writeStatus("404 Not Found").end(`{"status": "error", "message": "Room doesn't exist."}`);
+				return;
+			};
+			response.writeStatus("200 OK").end(`{"status": "success", "room": "${getRoomId}"}`);
+			return;
 		}
 		case "put": {
 			// modify a room
-			break;
-		}
-		case "post": {
-			// create a room
-			break;
+			// TODO: authenticate!
+			response.onAborted(function(){}); // could probably write some 4xx here but oh well
+			let getRoomId = request.getUrl().split('/')[2];
+			if(typeof RoomStorage.get(getRoomId) === "undefined") {
+				response.writeStatus("404 Not Found").end(`{"status": "error", "message": "Room doesn't exist."}`);
+				return;
+			};
+			if(request.getHeader("content-type") !== "application/json") {
+				response.writeStatus("400 Bad Request").end("{\"status\": \"error\", \"message\":\"Expected JSON.\"}");
+				return;
+			}
+			response.onData(function(chunk, last) {
+				if(last !== true) {
+					response.writeStatus("400 Bad Request").end("{\"status\": \"error\", \"message\":\"Request too long.\"}");
+					return;
+				}
+				let timeData = JSON.parse(new TextDecoder("utf-8").decode(chunk));
+				RoomStorage.set(getRoomId, timeData);
+				response.writeStatus("200 OK").end(`{"status": "success", "room": "${getRoomId}"}`);
+				console.log(`${getRoomId} => ${JSON.stringify(timeData)}`);
+				return;
+			});
+			return;
 		}
 		case "delete": {
 			// terminate a room
-			break;
+			// TODO: authenticate!
+			let getRoomId = request.getUrl().split('/')[2];
+			if(typeof RoomStorage.get(getRoomId) === "undefined") {
+				response.writeStatus("404 Not Found").end(`{"status": "error", "message": "Room doesn't exist."}`);
+				return;
+			};
+			RoomStorage.delete(getRoomId);
+			response.writeStatus("200 OK").end(`{"status": "success", "room": "${getRoomId}"}`);
+			return;
 		}
 	}
-	response.writeStatus('200 OK').end("No data.");
 }
 
 // use SSLApp in prod!... or just proxy in nginx (apache2 is """fine""" too), does it matter in the end?
 require("uWebSockets.js").App({})
-.ws('/room/*', { // DECIDE ON THE ENDPOINT FOR WS ADDRESS; could also be /room/id, but would require jank? in USR(open)
+.ws("/room/*", { // DECIDE ON THE ENDPOINT FOR WS ADDRESS; could also be /room/id, but would require jank? in USR(open)
 	"idleTimeout": 32,
 	"maxBackpressure": 1024,
 	"maxPayloadLength": 512,
@@ -66,8 +121,37 @@ require("uWebSockets.js").App({})
 	"close": function(ws, code, message) {UserStateRequest(ws, "close", {code, message})},
 	"drain": function(ws) {console.log(`WS going through back-pressure!: ${ws.getBufferedAmount()}`)}
 })
-.put('/room/*', HttpRequestHandler)
-.del('/room/*', HttpRequestHandler)
-.get('/room/*', HttpRequestHandler) // should this really even provide anything or should it be handled by a frontend server
-.post('/create-room', HttpRequestHandler) // is this final naming? endpoint naming/routing can be decided later if needed
+.put("/room/*", HttpRequestHandler)
+.del("/room/*", HttpRequestHandler)
+.get("/room/*", HttpRequestHandler) // should this really even provide anything or should it be handled by a frontend server
+.get("/", function(rs,rq) {
+	rs.writeStatus("200 OK").end(/* template starts here: */
+`<!doctype html>
+<html>
+	<head>
+		<title>timeshare over websocket</title>
+	</head>
+	<body>
+		<form action="create-room" id="room-creator">
+			<label for="primaryTime">A</label>
+			<input type="number" id="primaryTime" name="primaryTime" min="1" value="1">
+			<label for="breakTime">B</label>
+			<input type="number" id="breakTime" name="breakTime" min="1" value="1">
+			<label for="messagesEnabled">C</label>
+			<input type="checkbox" id="messagesEnabled" name="messagesEnabled">
+			<input value="Submit" type="button" id="faux-submit">
+		</form>
+	</body>
+	<script>
+		document.getElementById("faux-submit").onclick = function(e) {
+			let sentData = new Object();
+			sentData.primaryTime = parseInt(document.getElementById("primaryTime").value);
+			sentData.breakTime = parseInt(document.getElementById("breakTime").value);
+			sentData.messagesEnabled = document.getElementById("messagesEnabled").checked;
+			fetch("/create-room", {"method": "POST", "headers": {"Content-Type": "application/json"}, "body": JSON.stringify(sentData)});
+		}
+	</script>
+</html>`);
+})
+.post("/create-room", HttpRequestHandler) // is this final naming? endpoint naming/routing can be decided later if needed
 .listen(config.port, function(token) {console.log(token ? `open on ${config.port}` : `failed to listen to ${config.port}`)});

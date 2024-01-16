@@ -4,6 +4,7 @@
 		<title>timeshare over websocket</title>
 	</head>
 	<body>
+		<!--
 		<form action="create-room" id="room-creator">
 			<label for="primaryTime">A</label>
 			<input type="number" id="primaryTime" name="primaryTime" min="1" value="1">
@@ -13,14 +14,37 @@
 			<input type="checkbox" id="messagesEnabled" name="messagesEnabled">
 			<input value="Submit" type="button" id="faux-submit">
 		</form>
+		-->
+		<form id="example-ui-1">
+			<fieldset>
+			<legend>primary</legend>
+			<label for="primary-time-hours">hours</label>
+			<input type="number" id="primary-time-hours" name="primary-time-hours" min="0" max="23" value="1">
+			<label for="primary-time-minutes">minutes</label>
+			<input type="number" id="primary-time-minutes" name="primary-time-minutes" min="0" max="59" value="0">
+			</fieldset>
+			<fieldset>
+			<legend>break</legend>
+			<label for="break-time-hours">hours</label>
+			<input type="number" id="break-time-hours" name="break-time-hours" min="0" max="23" value="1">
+			<label for="break-time-minutes">minutes</label>
+			<input type="number" id="break-time-minutes" name="break-time-minutes" min="0" max="59" value="0">
+			</fieldset>
+			<label for="messages-enabled">Enable messages in room:</label>
+			<input type="checkbox" id="messages-enabled" name="messages-enabled">
+			<br>
+			<input value="Submit" type="button" id="faux-submit-2">
+		</form>
 	</body>
 	<script>
+		/*
 		document.getElementById("faux-submit").onclick = function(e) {
-			sentData = new Object();
+			let sentData = new Object();
 			sentData.primaryTime = parseInt(document.getElementById("primaryTime").value);
 			sentData.breakTime = parseInt(document.getElementById("breakTime").value);
 			sentData.messagesEnabled = document.getElementById("messagesEnabled").checked;
 			fetch("/room-create", {"method": "POST", "headers": {"Content-Type": "application/json"}, "body": JSON.stringify(sentData)});
 		}
+		*/
 	</script>
 </html>
