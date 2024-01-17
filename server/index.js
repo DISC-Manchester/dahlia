@@ -76,18 +76,18 @@ const HttpRequestHandler = function(response, request) {
 			// create a room
 			response.onAborted(function(){}); // could probably write some 4xx here but oh well
 			if(request.getHeader("content-type") !== "application/json") {
-				response.writeStatus("400 Bad Request").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Expected JSON.\"}");
+				response.cork(function() {response.writeStatus("400 Bad Request").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Expected JSON.\"}")});
 				return;
 			}
 			response.onData(function(chunk, last) {
 				if(last !== true) {
-					response.writeStatus("400 Bad Request").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Request too long.\"}");
+					response.cork(function() {response.writeStatus("400 Bad Request").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Request too long.\"}")});
 					return;
 				}
 				let timeData = JSON.parse(new TextDecoder("utf-8").decode(chunk));
 				let id = Math.random().toString(16).split('.')[1].substring(0,8);
 				RoomStorage.set(id, timeData);
-				response.writeStatus("200 OK").writeHeader("Content-Type", "application/json").end(`{"status": "success", "room": "${id}"}`);
+				response.cork(function() {response.writeHeader("Content-Type", "application/json").end(`{"status": "success", "room": "${id}"}`)});
 				console.log(`${id} => ${JSON.stringify(timeData)}`);
 				return;
 			});
@@ -95,35 +95,35 @@ const HttpRequestHandler = function(response, request) {
 		}
 		case "get": {
 			// get room information
-			let getRoomId = request.getUrl().split('/')[2];
+			let getRoomId = request.getParameter("room");
 			if(typeof RoomStorage.get(getRoomId) === "undefined") {
-				response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end(`{"status": "error", "message": "Room doesn't exist."}`);
+				response.cork(function() {response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end(`{"status": "error", "message": "Room doesn't exist."}`)});
 				return;
 			};
-			response.writeStatus("200 OK").writeHeader("Content-Type", "application/json").end(`{"status": "success", "room": "${getRoomId}"}`);
+			response.cork(function() {response.writeHeader("Content-Type", "application/json").end(`{"status": "success", "room": "${getRoomId}"}`)});
 			return;
 		}
 		case "put": {
 			// modify a room
 			// TODO: authenticate!
 			response.onAborted(function(){}); // could probably write some 4xx here but oh well
-			let getRoomId = request.getUrl().split('/')[2];
+			let getRoomId = request.getParameter("room");
 			if(typeof RoomStorage.get(getRoomId) === "undefined") {
-				response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end(`{"status": "error", "message": "Room doesn't exist."}`);
+				response.cork(function() {response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end(`{"status": "error", "message": "Room doesn't exist."}`)});
 				return;
 			};
 			if(request.getHeader("content-type") !== "application/json") {
-				response.writeStatus("400 Bad Request").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Expected JSON.\"}");
+				response.cork(function() {response.writeStatus("400 Bad Request").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Expected JSON.\"}")});
 				return;
 			}
 			response.onData(function(chunk, last) {
 				if(last !== true) {
-					response.writeStatus("400 Bad Request").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Request too long.\"}");
+					response.cork(function() {response.writeStatus("400 Bad Request").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Request too long.\"}")});
 					return;
 				}
 				let timeData = JSON.parse(new TextDecoder("utf-8").decode(chunk));
 				RoomStorage.set(getRoomId, timeData);
-				response.writeStatus("200 OK").writeHeader("Content-Type", "application/json").end(`{"status": "success", "room": "${getRoomId}"}`);
+				response.cork(function() {response.writeHeader("Content-Type", "application/json").end(`{"status": "success", "room": "${getRoomId}"}`)});
 				console.log(`${getRoomId} => ${JSON.stringify(timeData)}`);
 				return;
 			});
@@ -132,13 +132,13 @@ const HttpRequestHandler = function(response, request) {
 		case "delete": {
 			// terminate a room
 			// TODO: authenticate!
-			let getRoomId = request.getUrl().split('/')[2];
+			let getRoomId = request.getParameter("room");
 			if(typeof RoomStorage.get(getRoomId) === "undefined") {
-				response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end(`{"status": "error", "message": "Room doesn't exist."}`);
+				response.cork(function() {response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end(`{"status": "error", "message": "Room doesn't exist."}`)});
 				return;
 			};
 			RoomStorage.delete(getRoomId);
-			response.writeStatus("200 OK").writeHeader("Content-Type", "application/json").end(`{"status": "success", "room": "${getRoomId}"}`);
+			response.cork(function() {response.writeHeader("Content-Type", "application/json").end(`{"status": "success", "room": "${getRoomId}"}`)});
 			return;
 		}
 	}
@@ -146,22 +146,27 @@ const HttpRequestHandler = function(response, request) {
 
 // use SSLApp in prod!... or just proxy in nginx (apache2 is """fine""" too), does it matter in the end?
 require("uWebSockets.js").App({})
-.ws("/room/*", { // DECIDE ON THE ENDPOINT FOR WS ADDRESS; could also be /room/id, but would require jank? in USR(open)
-	"idleTimeout": 32,
-	"maxBackpressure": 1024,
-	"maxPayloadLength": 512,
+.ws("/connect", { // DECIDE ON THE ENDPOINT FOR WS ADDRESS; could also be /room/id, but would require jank? in USR(open)
+	// options
 	"compression": require("uWebSockets.js").DEDICATED_COMPRESSOR_3KB, // do we need a compressor for this kind of protocol, uWS actively despises compression, so it's worth considering.
 	// here be events
+	"upgrade": function(rs, rq, cx) {
+		rs.upgrade({}, /* very important, this sets a UserData object (which can contain anything we like) to the WSConnection instance. This can only be done here. */
+		rq.getHeader("sec-websocket-key"),
+		rq.getHeader("sec-websocket-protocol"),
+		rq.getHeader("sec-websocket-extensions"),
+		cx);
+	},
 	"message": MessageParser,
 	"open": function(ws) {UserStateRequest(ws, "open")},
 	"close": function(ws, code, message) {UserStateRequest(ws, "close", {code, message})},
 	"drain": function(ws) {console.log(`WS going through back-pressure!: ${ws.getBufferedAmount()}`)}
 })
-.put("/room/*", HttpRequestHandler)
-.del("/room/*", HttpRequestHandler)
-.get("/room/*", HttpRequestHandler) // should this really even provide anything or should it be handled by a frontend server
+.put("/room/:room", HttpRequestHandler)
+.del("/room/:room", HttpRequestHandler)
+.get("/room/:room", HttpRequestHandler) // should this really even provide anything or should it be handled by a frontend server
 .get("/", function(rs,rq) {
-	rs.writeStatus("200 OK").end(/* template starts here: */
+	rs.writeHeader("Content-Type", "text/html").end(/* template starts here: */
 `<!doctype html>
 <html>
 	<head>
