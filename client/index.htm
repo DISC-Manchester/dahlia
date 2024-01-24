@@ -138,14 +138,14 @@
 			}
 			let position = -1;
 			let sections = new Array();
-			
+
 			for(;;) {
 				let length = instruction.indexOf('.', position + 1);
-				
+
 				if(length === -1) {
 					break;
 				}
-				
+
 				position = (parseInt(instruction.slice(position + 1, length)) + length) + 1
 				sections.push(instruction.slice(length + 1, position)
 					.replace(/&#x27;/g,	"'")
@@ -155,7 +155,7 @@
 					.replace(/&gt;/g,	'>')
 					.replace(/&amp;/g,	'&')
 				);
-				
+
 				if(instruction.slice(position, position + 1) === ';') {
 					break;
 				}

@@ -9,14 +9,14 @@ const ParseCommandString = function(instruction) {
 	}
 	let position = -1;
 	let sections = new Array();
-	
+
 	for(;;) {
 		let length = instruction.indexOf('.', position + 1);
-		
+
 		if(length === -1) {
 			break;
 		}
-		
+
 		position = (parseInt(instruction.slice(position + 1, length)) + length) + 1
 		sections.push(instruction.slice(length + 1, position)
 			.replace(/&#x27;/g,	"'")
@@ -26,7 +26,7 @@ const ParseCommandString = function(instruction) {
 			.replace(/&gt;/g,	'>')
 			.replace(/&amp;/g,	'&')
 		);
-		
+
 		if(instruction.slice(position, position + 1) === ';') {
 			break;
 		}
@@ -308,8 +308,8 @@ server.ws("/connect", {
 	If we're doing it by HttpRequestHandler, then how do we start it?
 	Should we support partial edits using the PATCH verb?
 	If not, then what?
-	
+
 	Authenication: How? Room creation token?
-	
+
 	Rooms with 0 members: what do we do about them?, delete after a timeout?
 **/
