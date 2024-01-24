@@ -66,6 +66,10 @@ const MessageParser = function(webSocket, message, isBinary) {
 	try {
 		const args = ParseCommandString(msg);
 		switch(args[0]) {
+			case "name": {
+				webSocket.send(EncodeCommandString(["rename", 0, "", webSocket.getUserData().username]));
+				break;
+			}
 			case "join": {
 				if(args.length <= 1) {
 					webSocket.send(EncodeCommandString(["join", 0]));
@@ -78,7 +82,7 @@ const MessageParser = function(webSocket, message, isBinary) {
 				};
 				if(webSocket.isSubscribed(`rooms/${getRoomId}`) === true) {
 					webSocket.send(EncodeCommandString(["join", 0]));
-					webSocket.send(EncodeCommandString(["msg", `* You are already in the room ${getRoomId}.`]));
+					webSocket.send(EncodeCommandString(["msg", `You are already in the room ${getRoomId}.`]));
 					break;
 				};
 				//									param   s
@@ -88,7 +92,7 @@ const MessageParser = function(webSocket, message, isBinary) {
 					RoomStorage.get(getRoomId)["messagesEnabled"]|0	/* messagesEnabled as int */
 				]));
 				webSocket.subscribe(`rooms/${getRoomId}`);
-				webSocket.send(EncodeCommandString(["msg", `* Joined the room ${getRoomId}.`]));
+				webSocket.send(EncodeCommandString(["msg", `Joined the room ${getRoomId}.`]));
 				webSocket.send(EncodeCommandString(["adduser", getRoomId, 1, webSocket.getUserData().username])); // this should send all current users
 				webSocket.publish(`rooms/${getRoomId}`, EncodeCommandString(["adduser", getRoomId, 1, webSocket.getUserData().username]));
 				break;
@@ -109,7 +113,7 @@ const MessageParser = function(webSocket, message, isBinary) {
 				};
 				webSocket.send(EncodeCommandString(["part", 1]));
 				webSocket.unsubscribe(`rooms/${getRoomId}`);
-				webSocket.send(EncodeCommandString(["msg", `* Parted the room ${getRoomId}.`]));
+				webSocket.send(EncodeCommandString(["msg", `Parted the room ${getRoomId}.`]));
 				webSocket.publish(`rooms/${getRoomId}`, EncodeCommandString(["remuser", getRoomId, webSocket.getUserData().username]));
 				break;
 			}
@@ -242,8 +246,8 @@ const HttpRequestHandler = function(response, request) {
 }
 
 // use SSLApp in prod!... or just proxy in nginx (apache2 is """fine""" too), does it matter in the end?
-require("uWebSockets.js").App({})
-.ws("/connect", { // DECIDE ON THE ENDPOINT FOR WS ADDRESS; could also be /room/id, but would require jank? in USR(open)
+const server = require("uWebSockets.js").App({}); // i need this for global .publish (server.publish(id, ECS(["event", 1]); later, i think?
+server.ws("/connect", {
 	// options
 	"compression": require("uWebSockets.js").DEDICATED_COMPRESSOR_3KB, // do we need a compressor for this kind of protocol, uWS actively despises compression, so it's worth considering.
 	// here be events
@@ -289,7 +293,23 @@ require("uWebSockets.js").App({})
 			fetch("/create-room", {"method": "POST", "headers": {"Content-Type": "application/json"}, "body": JSON.stringify(sentData)});
 		}
 	</script>
-</html>`);
+</html>`
+	);
 })
 .post("/create-room", HttpRequestHandler) // is this final naming? endpoint naming/routing can be decided later if needed
 .listen(config.port, function(token) {console.log(token ? `open on ${config.port}` : `failed to listen to ${config.port}`)});
+
+// i keep considering if i should make this a HTMX thing or not
+
+//current issues:
+/**
+	Can't decide on client-side rewrite already
+	What starts the clock? Does it start on room creation?
+	If we're doing it by HttpRequestHandler, then how do we start it?
+	Should we support partial edits using the PATCH verb?
+	If not, then what?
+	
+	Authenication: How? Room creation token?
+	
+	Rooms with 0 members: what do we do about them?, delete after a timeout?
+**/
