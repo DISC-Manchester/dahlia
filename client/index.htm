@@ -99,7 +99,6 @@
 						case "1": {
 							// Connected.
 							writeToConsole(`args> primaryTime: ${args[2]}, breakTime: ${args[3]}, messages: ${(args[4] === "1") ? "enabled": "disabled"}}`);
-							document.getElementById("send-message-button").disabled = (args[4] === "1") ? false : true;
 							break;
 						}
 					}
@@ -183,13 +182,13 @@
 			return sections;
 		}
 		const EncodeCommandString = function(sections) {
-			if (Array.isArray(sections) === false) {
+			if(Array.isArray(sections) === false) {
 				return;
 			}
 			let instruction = new String();
 			const argv = sections;
 			for (let argc = 0; argc < sections.length ; argc++) {
-				if (typeof sections[argc] !== "string") {
+				if(typeof sections[argc] !== "string") {
 					argv[argc] = sections[argc].toString();
 				}
 				argv[argc] = argv[argc]
