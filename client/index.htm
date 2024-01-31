@@ -65,7 +65,7 @@
 				<input id="message-roomid" placeholder="room id" class="online-only" disabled />
 				<input id="message-message" placeholder="message" class="online-only" disabled />
 				<span>&nbsp;</span>
-				<button id="send-message-button" onclick="sendMessage()" class="online-only" disabled>send message</button>
+				<button onclick="sendMessage()" class="online-only" disabled>send message</button>
 			</div>
 		</div>
 	</body>
@@ -105,7 +105,6 @@
 						case "1": {
 							// Connected.
 							writeToConsole(`args> primaryTime: ${args[2]}, breakTime: ${args[3]}, messages: ${(args[4] === "1") ? "enabled": "disabled"}}`);
-							document.getElementById("send-message-button").disabled = (args[4] === "1") ? false : true;
 							break;
 						}
 					}
