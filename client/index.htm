@@ -1,230 +1,232 @@
 <!DOCTYPE html>
 <html lang="en">
-<link rel="stylesheet" href="styles/style.css" />
-  <script src="scripts/timer.js"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <head>
-    <div class="top-bar">
-      <div class="header">
-        <div class="Logo">
-          <img id="logo" src="assets/DiscLogo.png" alt="Disc Logo" />
-        </div>
+	<head>
+		<title>timeshare over websocket</title>
+		<link rel="stylesheet" href="styles/style.css">
+		<script src="scripts/timer.js"></script>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	</head>
+	<body>
+		<div class="top-bar">
+			<div class="header">
+				<div class="Logo">
+					<img id="logo" src="assets/DiscLogo.png" alt="Disc Logo" />
+				</div>
 
-        <h1>Dahlia</h1>
-      </div>
-    </div>
-  </head>
+				<h1>Dahlia</h1>
+			</div>
+		</div>
+		<div class="container">
+			<div id="timer-container">
+				<div id="timer">00:00</div>
+		</div>
+		<div class="timer-buttons">
+				<button class="timer-button" onclick="startTimer(600)">Short Break</button>
+				<button class="timer-button" onclick="startTimer(3600)"> Long Break </button>
+				<button class="timer-button" onclick="startTimer(1500)"> work! </button>
+				<button class="reset-button" onclick="resetTimer(0)">Reset Timer</button>
+		</div>
+		
+			 
+			</div>
 
-  <body>
-    <div class="container">
-      <div id="timer-container">
-        <div id="timer">00:00</div>
-    </div>
-    <div class="timer-buttons">
-        <button class="timer-button" onclick="startTimer(600)">Short Break</button>
-        <button class="timer-button" onclick="startTimer(3600)"> Long Break </button>
-        <button class="timer-button" onclick="startTimer(1500)"> work! </button>
-        <button class="reset-button" onclick="resetTimer(0)">Reset Timer</button>
-    </div>
-    
-       
-      </div>
+			<div class="chat-box">
+				<div class="chat-messages" id="chatMessages"></div>
+				<div class="user-input">
+					<input
+						type="text"
+						id="messageInput"
+						placeholder="Type your message..."
+					/>
+					<button onclick="sendMessageReal()">Send</button>
+				</div>
+			</div>
+		</div>
 
-      <div class="chat-box">
-        <div class="chat-messages" id="chatMessages"></div>
-        <div class="user-input">
-          <input
-            type="text"
-            id="messageInput"
-            placeholder="Type your message..."
-          />
-          <button onclick="sendMessageReal()">Send</button>
-        </div>
-      </div>
-    </div>
+		<script>
+			function sendMessageReal() {
+				var messageInput = document.getElementById("messageInput");
+				var chatMessages = document.getElementById("chatMessages");
 
-    <script>
-      function sendMessageReal() {
-        var messageInput = document.getElementById("messageInput");
-        var chatMessages = document.getElementById("chatMessages");
+				if (messageInput.value.trim() !== "") {
+					var message = document.createElement("div");
+					message.className = "message";
+					message.innerText = "You: " + messageInput.value;
+					chatMessages.appendChild(message);
 
-        if (messageInput.value.trim() !== "") {
-          var message = document.createElement("div");
-          message.className = "message";
-          message.innerText = "You: " + messageInput.value;
-          chatMessages.appendChild(message);
+					messageInput.value = "";
 
-          messageInput.value = "";
+					chatMessages.scrollTop = chatMessages.scrollHeight;
+				}
+			}
+		</script>
 
-          chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-      }
-    </script>
+		<div class="bottom-bar"></div>
+	</body>
+	<script>
+		const session = new WebSocket("ws://localhost:9091/connect");
+		session.onmessage = function(event) {
+			const args = ParseCommandString(event.data);
+			switch (args[0]) {
+				case "rename": {
+					document.getElementById("cid").textContent = args[3];
+					writeToConsole(`you are "${args[3]}".`);
+					break;
+				}
+				case "msg": {
+					writeToConsole("* ".concat(args[1]));
+					break;
+				}
+				case "chat": {
+					writeToConsole(`#${args[1]}:<"${args[2]}"> says: ${args[3]}`);
+					break;
+				}
+				case "adduser": {
+					writeToConsole(`#${args[1]}:<"${args[3]}"> joined`);
+					break;
+				}
+				case "remuser": {
+					writeToConsole(`#${args[1]}:<"${args[2]}"> left`);
+					break;
+				}
+				case "join": {
+					switch(args[1]) {
+						case "0": {
+							// Failed.
+							writeToConsole("Failed to join the room.");
+							break;
+						}
+						case "1": {
+							// Connected.
+							writeToConsole(`args> primaryTime: ${args[2]}, breakTime: ${args[3]}, messages: ${(args[4] === "1") ? "enabled": "disabled"}}`);
+							document.getElementById("send-message-button").disabled = true;
+							break;
+						}
+					}
+					break;
+				}
+				default: {
+					writeToConsole(event.data);
+				}
+			}
+		}
+		session.onopen = function() {
+			Array.from(document.getElementsByClassName("online-only")).forEach(function (elem) {elem.disabled = false});
+			session.send(EncodeCommandString(["name"]));
+		}
+		session.onclose = function(event) {
+			Array.from(document.getElementsByClassName("online-only")).forEach(function (elem) {elem.disabled = true});
+			console.log(event);
+			writeToConsole("disconnected from server");
+		}
+		function doJoin() {
+			session.send(
+				EncodeCommandString(["join", document.getElementById("roomid").value])
+			);
+			return;
+		}
+		function doPart() {
+			session.send(
+				EncodeCommandString(["part", document.getElementById("roomid").value])
+			);
+			return;
+		}
+		function sendMessage() {
+			session.send(
+				EncodeCommandString([
+					"chat",
+					document.getElementById("message-roomid").value,
+					document.getElementById("message-message").value,
+				])
+			);
+			return;
+		}
+		function sendSocket() {
+			session.send(document.getElementById("textinput").value);
+			return;
+		}
+		function writeToConsole(input = "") {
+			const consolebox = document.getElementById("console");
+			let cb = document.createElement("span");
+			cb.textContent = input;
+			consolebox.appendChild(cb);
+			consolebox.appendChild(document.createElement("br"));
+		}
+		const ParseCommandString = function(instruction) {
+			if(typeof instruction !== "string") {
+				return;
+			}
+			let position = -1;
+			let sections = new Array();
 
-    <div class="bottom-bar"></div>
-  </body>
-  <script>
-    const session = new WebSocket("ws://localhost:9091/connect");
-    session.onmessage = function (event) {
-      const args = ParseCommandString(event.data);
-      switch (args[0]) {
-        case "rename": {
-          document.getElementById("cid").textContent = args[3];
-          writeToConsole(`you are "${args[3]}".`);
-          break;
-        }
-        case "msg": {
-          writeToConsole("* ".concat(args[1]));
-          break;
-        }
-        case "chat": {
-          writeToConsole(`#${args[1]}:<"${args[2]}"> says: ${args[3]}`);
-          break;
-        }
-        case "adduser": {
-          writeToConsole(`#${args[1]}:<"${args[3]}"> joined`);
-          break;
-        }
-        case "remuser": {
-          writeToConsole(`#${args[1]}:<"${args[2]}"> left`);
-          break;
-        }
-        default: {
-          writeToConsole(event.data);
-        }
-      }
-    };
-    session.onopen = function () {
-      Array.from(document.getElementsByClassName("online-only")).forEach(
-        function (elem) {
-          elem.disabled = false;
-        }
-      );
-      session.send(EncodeCommandString(["name"]));
-    };
-    session.onclose = function (event) {
-      Array.from(document.getElementsByClassName("online-only")).forEach(
-        function (elem) {
-          elem.disabled = true;
-        }
-      );
-      console.log(event);
-      writeToConsole("disconnected from server");
-    };
-    function doJoin() {
-      session.send(
-        EncodeCommandString(["join", document.getElementById("roomid").value])
-      );
-      return;
-    }
-    function doPart() {
-      session.send(
-        EncodeCommandString(["part", document.getElementById("roomid").value])
-      );
-      return;
-    }
-    function sendMessage() {
-      session.send(
-        EncodeCommandString([
-          "chat",
-          document.getElementById("message-roomid").value,
-          document.getElementById("message-message").value,
-        ])
-      );
-      return;
-    }
-    function sendSocket() {
-      session.send(document.getElementById("textinput").value);
-      return;
-    }
-    function writeToConsole(input = "") {
-      const consolebox = document.getElementById("console");
-      let cb = document.createElement("span");
-      cb.textContent = input;
-      consolebox.appendChild(cb);
-      consolebox.appendChild(document.createElement("br"));
-    }
-    const ParseCommandString = function (instruction) {
-      if (typeof instruction !== "string") {
-        return;
-      }
-      let position = -1;
-      let sections = new Array();
+			for(;;) {
+				let length = instruction.indexOf('.', position + 1);
 
-      for (;;) {
-        let length = instruction.indexOf(".", position + 1);
+				if(length === -1) {
+					break;
+				}
 
-        if (length === -1) {
-          break;
-        }
+				position = (parseInt(instruction.slice(position + 1, length)) + length) + 1
+				sections.push(instruction.slice(length + 1, position)
+					.replace(/&#x27;/g,	"'")
+					.replace(/&quot;/g,	'"')
+					.replace(/&#x2F;/g,	'/')
+					.replace(/&lt;/g,	'<')
+					.replace(/&gt;/g,	'>')
+					.replace(/&amp;/g,	'&')
+				);
 
-        position =
-          parseInt(instruction.slice(position + 1, length)) + length + 1;
-        sections.push(
-          instruction
-            .slice(length + 1, position)
-            .replace(/&#x27;/g, "'")
-            .replace(/&quot;/g, '"')
-            .replace(/&#x2F;/g, "/")
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">")
-            .replace(/&amp;/g, "&")
-        );
-
-        if (instruction.slice(position, position + 1) === ";") {
-          break;
-        }
-      }
-      return sections;
-    };
-    const EncodeCommandString = function (sections) {
-      if (Array.isArray(sections) === false) {
-        return;
-      }
-      let instruction = new String();
-      const argv = sections;
-      for (let argc = 0; argc < sections.length; argc++) {
-        if (typeof sections[argc] !== "string") {
-          argv[argc] = sections[argc].toString();
-        }
-        argv[argc] = argv[argc]
-          .replace(/'/g, "&#x27;")
-          .replace(/"/g, "&quot;")
-          .replace(/\//g, "&#x2F")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/&/g, "&amp;");
-        instruction = instruction.concat(
-          argv[argc].length.toString(),
-          ".",
-          argv[argc]
-        );
-        instruction += argc === sections.length - 1 ? ";" : ",";
-      }
-      return instruction;
-    };
-    document.getElementById("faux-submit").onclick = async function (e) {
-      let sentData = new Object();
-      sentData.primaryTime =
-        parseInt(document.getElementById("primary-time-hours").value) * 60;
-      sentData.primaryTime += parseInt(
-        document.getElementById("primary-time-minutes").value
-      );
-      sentData.breakTime =
-        parseInt(document.getElementById("break-time-hours").value) * 60;
-      sentData.breakTime += parseInt(
-        document.getElementById("break-time-hours").value
-      );
-      sentData.messagesEnabled =
-        document.getElementById("messages-enabled").checked;
-      let request = await fetch("/room-create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sentData),
-      });
-      let responseData = await response.json();
-      console.log(responseData);
-      writeToConsole(JSON.stringify(responseData));
-    };
-  </script>
+				if(instruction.slice(position, position + 1) === ';') {
+					break;
+				}
+			}
+			return sections;
+		}
+		const EncodeCommandString = function(sections) {
+			if (Array.isArray(sections) === false) {
+				return;
+			}
+			let instruction = new String();
+			const argv = sections;
+			for (let argc = 0; argc < sections.length ; argc++) {
+				if (typeof sections[argc] !== "string") {
+					argv[argc] = sections[argc].toString();
+				}
+				argv[argc] = argv[argc]
+					.replace(/'/g,	"&#x27;")
+					.replace(/"/g,	'&quot;')
+					.replace(/\//g,	'&#x2F'	)
+					.replace(/</g,	'&lt;'	)
+					.replace(/>/g,	'&gt;'	)
+					.replace(/&/g,	'&amp;'	)
+				;
+				instruction = instruction.concat(argv[argc].length.toString(), ".", argv[argc])
+				instruction += (argc === sections.length - 1) ? ';' : ',';
+			}
+			return instruction;
+		}
+		document.getElementById("faux-submit").onclick = async function(e) {
+			let sentData = new Object();
+			sentData.primaryTime =
+				parseInt(document.getElementById("primary-time-hours").value) * 60;
+			sentData.primaryTime += parseInt(
+				document.getElementById("primary-time-minutes").value
+			);
+			sentData.breakTime =
+				parseInt(document.getElementById("break-time-hours").value) * 60;
+			sentData.breakTime += parseInt(
+				document.getElementById("break-time-hours").value
+			);
+			sentData.messagesEnabled =
+				document.getElementById("messages-enabled").checked;
+			let request = await fetch("/room-create", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(sentData),
+			});
+			let responseData = await response.json();
+			console.log(responseData);
+			writeToConsole(JSON.stringify(responseData));
+		};
+	</script>
 </html>
