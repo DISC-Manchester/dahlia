@@ -65,7 +65,7 @@
 				<input id="message-roomid" placeholder="room id" class="online-only" disabled />
 				<input id="message-message" placeholder="message" class="online-only" disabled />
 				<span>&nbsp;</span>
-				<button onclick="sendMessage()" class="online-only" disabled>send message</button>
+				<button id="send-message-button" onclick="sendMessage()" class="online-only" disabled>send message</button>
 			</div>
 		</div>
 	</body>
@@ -93,6 +93,22 @@
 				}
 				case "remuser": {
 					writeToConsole(`#${args[1]}:<"${args[2]}"> left`);
+					break;
+				}
+				case "join": {
+					switch(args[1]) {
+						case "0": {
+							// Failed.
+							writeToConsole("Failed to join the room.");
+							break;
+						}
+						case "1": {
+							// Connected.
+							writeToConsole(`args> primaryTime: ${args[2]}, breakTime: ${args[3]}, messages: ${(args[4] === "1") ? "enabled": "disabled"}}`);
+							document.getElementById("send-message-button").disabled = true;
+							break;
+						}
+					}
 					break;
 				}
 				default: {

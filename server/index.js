@@ -283,14 +283,20 @@ server.ws("/connect", {
 			<input type="checkbox" id="messagesEnabled" name="messagesEnabled">
 			<input value="Submit" type="button" id="faux-submit">
 		</form>
+		<div id="output"></div>
 	</body>
 	<script>
-		document.getElementById("faux-submit").onclick = function(e) {
+		document.getElementById("faux-submit").onclick = async function(e) {
 			let sentData = new Object();
 			sentData.primaryTime = parseInt(document.getElementById("primaryTime").value);
 			sentData.breakTime = parseInt(document.getElementById("breakTime").value);
 			sentData.messagesEnabled = document.getElementById("messagesEnabled").checked;
-			fetch("/create-room", {"method": "POST", "headers": {"Content-Type": "application/json"}, "body": JSON.stringify(sentData)});
+			const response = await fetch("/create-room", {"method": "POST", "headers": {"Content-Type": "application/json"}, "body": JSON.stringify(sentData)});
+			const data = await response.json();
+			let responseOutput = document.createElement('span');
+			responseOutput.textContent = "room created: " + data.room;
+			document.getElementById("output").appendChild(responseOutput);
+			document.getElementById("output").appendChild(document.createElement('br'))
 		}
 	</script>
 </html>`
