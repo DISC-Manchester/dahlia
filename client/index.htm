@@ -111,12 +111,13 @@
 		}
 		session.onopen = function() {
 			Array.from(document.getElementsByClassName("online-only")).forEach(function (elem) {elem.disabled = false});
+			/** this is dumb and i'm going to replace this with MUGE's rename command next server update **/
 			session.send(EncodeCommandString(["name"]));
 		}
 		session.onclose = function(event) {
 			Array.from(document.getElementsByClassName("online-only")).forEach(function (elem) {elem.disabled = true});
 			console.log(event);
-			writeToConsole("disconnected from server");
+			writeToConsole(`disconnected from server, e${event.code}`);
 		}
 		function doJoin() {
 			session.send(
@@ -145,7 +146,7 @@
 			return;
 		}
 		function writeToConsole(input = "") {
-			const consolebox = document.getElementById("console");
+			const consolebox = document.getElementById("chatMessages");
 			let cb = document.createElement("span");
 			cb.textContent = input;
 			consolebox.appendChild(cb);
@@ -204,28 +205,5 @@
 			}
 			return instruction;
 		}
-		document.getElementById("faux-submit").onclick = async function(e) {
-			let sentData = new Object();
-			sentData.primaryTime =
-				parseInt(document.getElementById("primary-time-hours").value) * 60;
-			sentData.primaryTime += parseInt(
-				document.getElementById("primary-time-minutes").value
-			);
-			sentData.breakTime =
-				parseInt(document.getElementById("break-time-hours").value) * 60;
-			sentData.breakTime += parseInt(
-				document.getElementById("break-time-hours").value
-			);
-			sentData.messagesEnabled =
-				document.getElementById("messages-enabled").checked;
-			let request = await fetch("/room-create", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(sentData),
-			});
-			let responseData = await response.json();
-			console.log(responseData);
-			writeToConsole(JSON.stringify(responseData));
-		};
 	</script>
 </html>
