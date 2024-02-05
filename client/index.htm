@@ -18,11 +18,11 @@
 		</div>
 		<div class="container">
 			<div id="timer-container">
-				<div id="timer">00:00</div>
+				<span id="timer">00:00</span>
 		</div>
 		<div class="timer-buttons">
-				<button class="timer-button" onclick="startTimer(600)">Short Break</button>
-				<button class="timer-button" onclick="startTimer(3600)"> Long Break </button>
+				<button class="timer-button" onclick="startTimer(300)">Short Break</button>
+				<button class="timer-button" onclick="startTimer(900)"> Long Break </button>
 				<button class="timer-button" onclick="startTimer(1500)"> work! </button>
 				<button class="reset-button" onclick="resetTimer(0)">Reset Timer</button>
 		</div>
@@ -38,38 +38,20 @@
 						id="messageInput"
 						placeholder="Type your message..."
 					/>
-					<button onclick="sendMessageReal()">Send</button>
+					<button onclick="sendMessage()">Send</button>
 				</div>
 			</div>
 		</div>
-
-		<script>
-			function sendMessageReal() {
-				var messageInput = document.getElementById("messageInput");
-				var chatMessages = document.getElementById("chatMessages");
-
-				if (messageInput.value.trim() !== "") {
-					var message = document.createElement("div");
-					message.className = "message";
-					message.innerText = "You: " + messageInput.value;
-					chatMessages.appendChild(message);
-
-					messageInput.value = "";
-
-					chatMessages.scrollTop = chatMessages.scrollHeight;
-				}
-			}
-		</script>
-
 		<div class="bottom-bar"></div>
 	</body>
 	<script>
 		const session = new WebSocket("ws://localhost:9091/connect");
+		const sessionStorage = new Object();
 		session.onmessage = function(event) {
 			const args = ParseCommandString(event.data);
 			switch (args[0]) {
 				case "rename": {
-					document.getElementById("cid").textContent = args[3];
+					sessionStorage["cid"] = args[3];
 					writeToConsole(`you are "${args[3]}".`);
 					break;
 				}
@@ -119,30 +101,18 @@
 			console.log(event);
 			writeToConsole(`disconnected from server, e${event.code}`);
 		}
+		/** @deprecated going to use 7.connect, and there is NO way of joining another room, apparently i've over-designed this **/
 		function doJoin() {
 			session.send(
 				EncodeCommandString(["join", document.getElementById("roomid").value])
 			);
 			return;
 		}
+		/** @deprecated going to be 10.disconnect, and it may not destroy the connection, just allow you to join another room **/
 		function doPart() {
 			session.send(
 				EncodeCommandString(["part", document.getElementById("roomid").value])
 			);
-			return;
-		}
-		function sendMessage() {
-			session.send(
-				EncodeCommandString([
-					"chat",
-					document.getElementById("message-roomid").value,
-					document.getElementById("message-message").value,
-				])
-			);
-			return;
-		}
-		function sendSocket() {
-			session.send(document.getElementById("textinput").value);
 			return;
 		}
 		function writeToConsole(input = "") {
@@ -151,6 +121,7 @@
 			cb.textContent = input;
 			consolebox.appendChild(cb);
 			consolebox.appendChild(document.createElement("br"));
+			consolebox.scrollTop = consolebox.scrollHeight;
 		}
 		const ParseCommandString = function(instruction) {
 			if(typeof instruction !== "string") {
@@ -204,6 +175,24 @@
 				instruction += (argc === sections.length - 1) ? ';' : ',';
 			}
 			return instruction;
+		}
+		/** I get it, the room system is over-engineered, will be removed in server pre-alpha 2 **/
+		function sendMessage() {
+			let messageInput = document.getElementById("messageInput");
+
+			if (messageInput.value.trim() !== "") {
+				writeToConsole(`local:You> ${messageInput.value}`);
+				if(!sessionStorage.currentRoom) {
+					return;
+				}
+				session.send(
+					EncodeCommandString([
+						"chat",
+						sessionStorage.currentRoom,
+						document.getElementById("messageInput").value,
+					])
+				);
+			}
 		}
 	</script>
 </html>
