@@ -2,6 +2,8 @@ const config = {port: 9091};
 Object.freeze(config); // Config should not be modified after initialization!
 
 const RoomStorage = new Map();
+const UserAttachedRoomStorage = new Map();
+//const UserAttachedNameStorage = new Map();
 
 const ParseCommandString = function(instruction) {
 	if(typeof instruction !== "string") {
@@ -67,81 +69,75 @@ const MessageParser = function(webSocket, message, isBinary) {
 		const args = ParseCommandString(msg);
 		switch(args[0]) {
 			case "name": {
+				// this is stupid
 				webSocket.send(EncodeCommandString(["rename", 0, "", webSocket.getUserData().username]));
 				break;
 			}
-			case "join": {
+			case "connect": {
 				if(args.length <= 1) {
-					webSocket.send(EncodeCommandString(["join", 0]));
+					webSocket.send(EncodeCommandString(["connect", 0]));
 					break;
 				}
 				let getRoomId = args[1];
 				if(typeof RoomStorage.get(getRoomId) === "undefined") {
-					webSocket.send(EncodeCommandString(["join", 0]));
+					webSocket.send(EncodeCommandString(["connect", 0]));
 					break;
 				};
 				if(webSocket.isSubscribed(`rooms/${getRoomId}`) === true) {
-					webSocket.send(EncodeCommandString(["join", 0]));
+					webSocket.send(EncodeCommandString(["connect", 0]));
 					webSocket.send(EncodeCommandString(["msg", `You are already in the room ${getRoomId}.`]));
 					break;
 				};
-				//									param   s
-				webSocket.send(EncodeCommandString(["join", 1,
+				if(typeof UserAttachedRoomStorage.get(webSocket.getUserData().username) !== "undefined") {
+					webSocket.send(EncodeCommandString(["connect", 0]));
+					webSocket.send(EncodeCommandString(["msg", "You may not connect to another room."]));
+					break;
+				}
+				webSocket.send(EncodeCommandString(["connect", 1,
 					RoomStorage.get(getRoomId)["primaryTime"],		/* primary time */
 					RoomStorage.get(getRoomId)["breakTime"],		/* break time */
 					RoomStorage.get(getRoomId)["messagesEnabled"]|0	/* messagesEnabled as int */
 				]));
 				webSocket.subscribe(`rooms/${getRoomId}`);
+				UserAttachedRoomStorage.set(webSocket.getUserData().username, getRoomId);
 				webSocket.send(EncodeCommandString(["msg", `Joined the room ${getRoomId}.`]));
-				webSocket.send(EncodeCommandString(["adduser", getRoomId, 1, webSocket.getUserData().username])); // this should send all current users
+				webSocket.send(EncodeCommandString(["adduser", 1, webSocket.getUserData().username])); // this should send all current users
 				webSocket.publish(`rooms/${getRoomId}`, EncodeCommandString(["adduser", getRoomId, 1, webSocket.getUserData().username]));
-				break;
-			}
-			case "part": {
-				if(args.length <= 1) {
-					webSocket.send(EncodeCommandString(["part", 0]));
-					break;
-				}
-				let getRoomId = args[1];
-				if(typeof RoomStorage.get(getRoomId) === "undefined") {
-					webSocket.send(EncodeCommandString(["part", 0]));
-					break;
-				};
-				if(webSocket.isSubscribed(`rooms/${getRoomId}`) === false) {
-					webSocket.send(EncodeCommandString(["part", 0]));
-					break;
-				};
-				webSocket.send(EncodeCommandString(["part", 1]));
-				webSocket.unsubscribe(`rooms/${getRoomId}`);
-				webSocket.send(EncodeCommandString(["msg", `Parted the room ${getRoomId}.`]));
-				webSocket.publish(`rooms/${getRoomId}`, EncodeCommandString(["remuser", getRoomId, webSocket.getUserData().username]));
-				break;
 			}
 			case "chat": {
-				if(args.length <= 2) {
+				let userState = UserAttachedRoomStorage.get(webSocket.getUserData().username);
+				if(typeof userState === "undefined") {
 					break;
 				}
-				let getRoomId = args[1];
-				if(typeof RoomStorage.get(getRoomId) === "undefined") {
-					break;
-				};
-				if(RoomStorage.get(getRoomId)["messagesEnabled"] === false) {
+				if(args.length <= 1) {
 					break;
 				}
-				if(webSocket.isSubscribed(`rooms/${getRoomId}`) === false) {
+				if(typeof RoomStorage.get(userState) === "undefined") {
 					break;
 				};
-				webSocket.send(EncodeCommandString(["chat", getRoomId, webSocket.getUserData().username, args[2]]));
-				webSocket.publish(`rooms/${getRoomId}`, EncodeCommandString(["chat", getRoomId, webSocket.getUserData().username, args[2]]));
+				if(RoomStorage.get(userState)["messagesEnabled"] === false) {
+					break;
+				}
+				if(webSocket.isSubscribed(`rooms/${userState}`) === false) {
+					break;
+				};
+				webSocket.send(EncodeCommandString(["chat", webSocket.getUserData().username, args[1]]));
+				webSocket.publish(`rooms/${userState}`, EncodeCommandString(["chat", webSocket.getUserData().username, args[1]]));
 				break;
 			}
 			case "disconnect": {
+				if(typeof UserAttachedRoomStorage.get(webSocket.getUserData().username) !== "undefined") {
+					webSocket.unsubscribe(`rooms/${UserAttachedRoomStorage.get(webSocket.getUserData().username)}`);
+					webSocket.publish(`rooms/${UserAttachedRoomStorage.get(webSocket.getUserData().username)}`, EncodeCommandString(["remuser", webSocket.getUserData().username]));
+					UserAttachedRoomStorage.delete(webSocket.getUserData().username);
+				}
+				webSocket.send(EncodeCommandString(["connect", 2])); // graceful disconnect message
 				webSocket.send(EncodeCommandString(["disconnect"]));
-				webSocket.end(1000, "Sent \"disconnect\" command.");
+				//webSocket.end(1000, "Sent \"disconnect\" command.");
 				return;
 			}
 			default: {
-				console.log("unknown command", args);
+				console.warn("unknown command", args);
 			}
 		}
 	} catch(e) {
@@ -154,8 +150,6 @@ const MessageParser = function(webSocket, message, isBinary) {
 const UserStateRequest = function(webSocket, state, data = null) {
 	switch(state) {
 		case "open": {
-			// allow client to subscribe to any room
-			// webSocket.subscribe("rooms/#");
 			console.log("%s client hello", new TextDecoder("utf-8").decode(webSocket.getRemoteAddressAsText()));
 			break;
 		}
@@ -195,7 +189,7 @@ const HttpRequestHandler = function(response, request) {
 		}
 		case "get": {
 			// get room information
-			let getRoomId = request.getParameter("room");
+			let getRoomId = request.getParameter(0); // room
 			if(typeof RoomStorage.get(getRoomId) === "undefined") {
 				response.cork(function() {response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Room doesn't exist.\"}")});
 				return;
@@ -207,7 +201,7 @@ const HttpRequestHandler = function(response, request) {
 			// modify a room
 			// TODO: authenticate!
 			response.onAborted(function(){}); // could probably write some 4xx here but oh well
-			let getRoomId = request.getParameter("room");
+			let getRoomId = request.getParameter(0); // room
 			if(typeof RoomStorage.get(getRoomId) === "undefined") {
 				response.cork(function() {response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Room doesn't exist.\"}")});
 				return;
@@ -232,7 +226,7 @@ const HttpRequestHandler = function(response, request) {
 		case "delete": {
 			// terminate a room
 			// TODO: authenticate!
-			let getRoomId = request.getParameter("room");
+			let getRoomId = request.getParameter(0); // room
 			if(typeof RoomStorage.get(getRoomId) === "undefined") {
 				response.cork(function() {response.writeStatus("404 Not Found").writeHeader("Content-Type", "application/json").end("{\"status\": \"error\", \"message\":\"Room doesn't exist.\"}")});
 				return;

@@ -50,8 +50,8 @@
 			<div style="border: 1px solid lightgray;display:inline-flex">
 				<input id="roomid" placeholder="room id" />
 				<span>&nbsp;</span>
-				<button onclick="doJoin()" class="online-only" disabled>join</button>
-				<button onclick="doPart()" class="online-only" disabled>part</button>
+				<button onclick="doConnectInstr()" class="online-only" disabled>connect</button>
+				<button onclick="doDisconnectInstr()" class="online-only" disabled>disconnect</button>
 			</div>
 			<br>
 			<kbd id="console">
@@ -62,10 +62,9 @@
 			<input id="textinput" class="online-only" disabled />
 			<button onclick="sendSocket()" class="online-only" disabled>send</button>
 			<div style="border: 1px solid lightgray;display:inline-flex">
-				<input id="message-roomid" placeholder="room id" class="online-only" disabled />
 				<input id="message-message" placeholder="message" class="online-only" disabled />
 				<span>&nbsp;</span>
-				<button onclick="sendMessage()" class="online-only" disabled>send message</button>
+				<button onclick="doChatInstr()" class="online-only" disabled>send message</button>
 			</div>
 		</div>
 	</body>
@@ -84,27 +83,32 @@
 					break;
 				}
 				case "chat": {
-					writeToConsole(`#${args[1]}:<"${args[2]}"> says: ${args[3]}`);
+					writeToConsole(`<"${args[1]}">: ${args[2]}`);
 					break;
 				}
 				case "adduser": {
-					writeToConsole(`#${args[1]}:<"${args[3]}"> joined`);
+					writeToConsole(`<"${args[2]}"> connected`);
 					break;
 				}
 				case "remuser": {
-					writeToConsole(`#${args[1]}:<"${args[2]}"> left`);
+					writeToConsole(`<"${args[1]}"> disconnected`);
 					break;
 				}
-				case "join": {
+				case "connect": {
 					switch(args[1]) {
 						case "0": {
 							// Failed.
-							writeToConsole("Failed to join the room.");
+							writeToConsole("Failed to connect to the room.");
 							break;
 						}
 						case "1": {
 							// Connected.
 							writeToConsole(`args> primaryTime: ${args[2]}, breakTime: ${args[3]}, messages: ${(args[4] === "1") ? "enabled": "disabled"}}`);
+							break;
+						}
+						case "2": {
+							// Graceful disconnect
+							writeToConsole("Server disconnected gracefully.");
 							break;
 						}
 					}
@@ -124,16 +128,16 @@
 			console.log(event);
 			writeToConsole("disconnected from server");
 		}
-		function doJoin() {
-			session.send(EncodeCommandString(["join", document.getElementById("roomid").value]));
+		function doConnectInstr() {
+			session.send(EncodeCommandString(["connect", document.getElementById("roomid").value]));
 			return;
 		}
-		function doPart() {
-			session.send(EncodeCommandString(["part", document.getElementById("roomid").value]));
+		function doDisconnectInstr() {
+			session.send(EncodeCommandString(["disconnect"]));
 			return;
 		}
-		function sendMessage() {
-			session.send(EncodeCommandString(["chat", document.getElementById("message-roomid").value, document.getElementById("message-message").value]));
+		function doChatInstr() {
+			session.send(EncodeCommandString(["chat", document.getElementById("message-message").value]));
 			return;
 		}
 		function sendSocket() {
