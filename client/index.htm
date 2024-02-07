@@ -1,80 +1,57 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 	<head>
 		<title>timeshare over websocket</title>
-		<style>
-			#console {
-				height:50vh;
-				width:100%;
-				overflow-y: scroll;
-				display:block;
-				resize: vertical;
-			}
-			body, kbd, input, button {
-				background: black;
-				color: #ccc;
-			}
-			button {
-				border: 1px solid white;
-			}
-			button:disabled {
-				border: 1px solid gray;
-				color: dimgray;
-			}
-		</style>
+		<link rel="stylesheet" href="styles/style.css">
+		<script src="scripts/timer.js"></script>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	</head>
 	<body>
-		<form id="example-ui-1">
-			<fieldset>
-			<legend>primary</legend>
-			<label for="primary-time-hours">hours</label>
-			<input type="number" id="primary-time-hours" name="primary-time-hours" min="0" max="23" value="1">
-			<label for="primary-time-minutes">minutes</label>
-			<input type="number" id="primary-time-minutes" name="primary-time-minutes" min="0" max="59" value="0">
-			</fieldset>
-			<fieldset>
-			<legend>break</legend>
-			<label for="break-time-hours">hours</label>
-			<input type="number" id="break-time-hours" name="break-time-hours" min="0" max="23" value="1">
-			<label for="break-time-minutes">minutes</label>
-			<input type="number" id="break-time-minutes" name="break-time-minutes" min="0" max="59" value="0">
-			</fieldset>
-			<label for="messages-enabled">Enable messages in room:</label>
-			<input type="checkbox" id="messages-enabled" name="messages-enabled">
-			<br>
-			<input value="Submit" type="button" id="faux-submit">
-		</form>
-		<div>
-			<hr>
-			<span id="cid">cid = ?</span>
-			<div style="border: 1px solid lightgray;display:inline-flex">
-				<input id="roomid" placeholder="room id" />
-				<span>&nbsp;</span>
-				<button onclick="doConnectInstr()" class="online-only" disabled>connect</button>
-				<button onclick="doDisconnectInstr()" class="online-only" disabled>disconnect</button>
-			</div>
-			<br>
-			<kbd id="console">
-				<span>&gt;</span>
-			</kbd>
-			<hr>
-			<label for="textinput">Send raw message:</label>
-			<input id="textinput" class="online-only" disabled />
-			<button onclick="sendSocket()" class="online-only" disabled>send</button>
-			<div style="border: 1px solid lightgray;display:inline-flex">
-				<input id="message-message" placeholder="message" class="online-only" disabled />
-				<span>&nbsp;</span>
-				<button onclick="doChatInstr()" class="online-only" disabled>send message</button>
+		<div class="top-bar">
+			<div class="header">
+				<div class="Logo">
+					<img id="logo" src="assets/DiscLogo.png" alt="Disc Logo" />
+				</div>
+
+				<h1>Dahlia</h1>
 			</div>
 		</div>
+		<div class="container">
+			<div id="timer-container">
+				<span id="timer">00:00</span>
+		</div>
+		<div class="timer-buttons">
+				<button class="timer-button" onclick="startTimer(300)">Short Break</button>
+				<button class="timer-button" onclick="startTimer(900)"> Long Break </button>
+				<button class="timer-button" onclick="startTimer(1500)"> work! </button>
+				<button class="reset-button" onclick="resetTimer(0)">Reset Timer</button>
+		</div>
+		
+			 
+			</div>
+
+			<div class="chat-box">
+				<div class="chat-messages" id="chatMessages"></div>
+				<div class="user-input">
+					<input
+						type="text"
+						id="messageInput"
+						placeholder="Type your message..."
+					/>
+					<button onclick="sendMessage()">Send</button>
+				</div>
+			</div>
+		</div>
+		<div class="bottom-bar"></div>
 	</body>
 	<script>
 		const session = new WebSocket("ws://localhost:9091/connect");
+		const sessionStorage = new Object();
 		session.onmessage = function(event) {
 			const args = ParseCommandString(event.data);
-			switch(args[0]) {
+			switch (args[0]) {
 				case "rename": {
-					document.getElementById("cid").textContent = args[3];
+					sessionStorage["cid"] = args[3];
 					writeToConsole(`you are "${args[3]}".`);
 					break;
 				}
@@ -114,6 +91,21 @@
 					}
 					break;
 				}
+				case "join": {
+					switch(args[1]) {
+						case "0": {
+							// Failed.
+							writeToConsole("Failed to join the room.");
+							break;
+						}
+						case "1": {
+							// Connected.
+							writeToConsole(`args> primaryTime: ${args[2]}, breakTime: ${args[3]}, messages: ${(args[4] === "1") ? "enabled": "disabled"}}`);
+							break;
+						}
+					}
+					break;
+				}
 				default: {
 					writeToConsole(event.data);
 				}
@@ -121,12 +113,13 @@
 		}
 		session.onopen = function() {
 			Array.from(document.getElementsByClassName("online-only")).forEach(function (elem) {elem.disabled = false});
+			/** this is dumb and i'm going to replace this with MUGE's rename command next server update **/
 			session.send(EncodeCommandString(["name"]));
 		}
 		session.onclose = function(event) {
 			Array.from(document.getElementsByClassName("online-only")).forEach(function (elem) {elem.disabled = true});
 			console.log(event);
-			writeToConsole("disconnected from server");
+			writeToConsole(`disconnected from server, e${event.code}`);
 		}
 		function doConnectInstr() {
 			session.send(EncodeCommandString(["connect", document.getElementById("roomid").value]));
@@ -145,11 +138,12 @@
 			return;
 		}
 		function writeToConsole(input = "") {
-			const consolebox = document.getElementById("console");
-			let cb = document.createElement('span');
+			const consolebox = document.getElementById("chatMessages");
+			let cb = document.createElement("span");
 			cb.textContent = input;
 			consolebox.appendChild(cb);
-			consolebox.appendChild(document.createElement('br'))
+			consolebox.appendChild(document.createElement("br"));
+			consolebox.scrollTop = consolebox.scrollHeight;
 		}
 		const ParseCommandString = function(instruction) {
 			if(typeof instruction !== "string") {
@@ -204,17 +198,23 @@
 			}
 			return instruction;
 		}
-		document.getElementById("faux-submit").onclick = async function(e) {
-			let sentData = new Object();
-			sentData.primaryTime = parseInt(document.getElementById("primary-time-hours").value) * 60;
-			sentData.primaryTime += parseInt(document.getElementById("primary-time-minutes").value);
-			sentData.breakTime = parseInt(document.getElementById("break-time-hours").value) * 60;
-			sentData.breakTime += parseInt(document.getElementById("break-time-hours").value); 
-			sentData.messagesEnabled = document.getElementById("messages-enabled").checked;
-			let request = await fetch("/room-create", {"method": "POST", "headers": {"Content-Type": "application/json"}, "body": JSON.stringify(sentData)})
-			let responseData = await response.json();
-			console.log(responseData);
-			writeToConsole(JSON.stringify(responseData));
+		/** I get it, the room system is over-engineered, will be removed in server pre-alpha 2 **/
+		function sendMessage() {
+			let messageInput = document.getElementById("messageInput");
+
+			if (messageInput.value.trim() !== "") {
+				writeToConsole(`local:You> ${messageInput.value}`);
+				if(!sessionStorage.currentRoom) {
+					return;
+				}
+				session.send(
+					EncodeCommandString([
+						"chat",
+						sessionStorage.currentRoom,
+						document.getElementById("messageInput").value,
+					])
+				);
+			}
 		}
 	</script>
 </html>
