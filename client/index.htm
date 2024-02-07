@@ -38,7 +38,8 @@
 						id="messageInput"
 						placeholder="Type your message..."
 					/>
-					<button onclick="sendMessage()">Send</button>
+					<!-- when converting into a module: id.onclick = doChatInstr -->
+					<button onclick="doChatInstr()">Send</button>
 				</div>
 			</div>
 		</div>
@@ -115,7 +116,11 @@
 			return;
 		}
 		function doChatInstr() {
-			session.send(EncodeCommandString(["chat", document.getElementById("message-message").value]));
+			let messageInput = document.getElementById("messageInput");
+			if(messageInput.value.trim().length === 0) {
+					return;
+			}
+			session.send(EncodeCommandString(["chat", messageInput.value]));
 			return;
 		}
 		function sendSocket() {
@@ -182,19 +187,6 @@
 				instruction += (argc === sections.length - 1) ? ';' : ',';
 			}
 			return instruction;
-		}
-		function sendMessage() {
-			let messageInput = document.getElementById("messageInput");
-
-			if (messageInput.value.trim() !== "") {
-				writeToConsole(`local:You> ${messageInput.value}`);
-				session.send(
-					EncodeCommandString([
-						"chat",
-						document.getElementById("messageInput").value,
-					])
-				);
-			}
 		}
 	</script>
 </html>
