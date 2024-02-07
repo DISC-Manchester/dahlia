@@ -91,21 +91,6 @@
 					}
 					break;
 				}
-				case "join": {
-					switch(args[1]) {
-						case "0": {
-							// Failed.
-							writeToConsole("Failed to join the room.");
-							break;
-						}
-						case "1": {
-							// Connected.
-							writeToConsole(`args> primaryTime: ${args[2]}, breakTime: ${args[3]}, messages: ${(args[4] === "1") ? "enabled": "disabled"}}`);
-							break;
-						}
-					}
-					break;
-				}
 				default: {
 					writeToConsole(event.data);
 				}
@@ -198,19 +183,14 @@
 			}
 			return instruction;
 		}
-		/** I get it, the room system is over-engineered, will be removed in server pre-alpha 2 **/
 		function sendMessage() {
 			let messageInput = document.getElementById("messageInput");
 
 			if (messageInput.value.trim() !== "") {
 				writeToConsole(`local:You> ${messageInput.value}`);
-				if(!sessionStorage.currentRoom) {
-					return;
-				}
 				session.send(
 					EncodeCommandString([
 						"chat",
-						sessionStorage.currentRoom,
 						document.getElementById("messageInput").value,
 					])
 				);
